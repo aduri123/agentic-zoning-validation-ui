@@ -4,191 +4,171 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Agentic Zoning Validation Assistant — Concept Demo Map</title>
-  <meta name="description" content="Concept demo UI with a live Leaflet map (no API key) to showcase an Agentic Zoning Validation Assistant." />
+  <meta name="description" content="Concept demo UI for an Agentic Zoning Validation Assistant integrating SDI maps, ArcGIS Knowledge, and vector databases for zoning compliance validation and explainable outputs." />
 
-  <!-- Leaflet (CDN, no key needed) -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous"/>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
+  <!-- Leaflet (no API key needed) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 
   <style>
-    :root{
+    :root {
       --bg:#f4f7fb; --card:#fff; --ink:#0f172a; --muted:#5b6b82;
-      --accent:#1976d2; --accent2:#7c4dff; --ring:0 10px 30px rgba(23,38,79,.08);
-      --radius:18px; --line:#e7ecf5; --ok:#16a34a;
+      --accent:#1976d2; --accent2:#7c4dff; --line:#e7ecf5;
+      --radius:18px; --ok:#16a34a;
     }
     *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--ink);
-      font:16px/1.5 "Inter", system-ui, -apple-system, Segoe UI, Roboto, Arial;}
+    body{margin:0;font-family:"Inter",sans-serif;background:var(--bg);color:var(--ink)}
 
     /* Header */
-    .hero{position:sticky;top:0;z-index:10;padding:28px 20px 40px;
-      background:linear-gradient(115deg,var(--accent) 0%,#3f8cff 40%,var(--accent2) 100%);
-      color:#fff;box-shadow:0 6px 30px rgba(0,0,0,.1)}
-    .wrap{max-width:1200px;margin:0 auto;position:relative}
-    .badge{position:absolute;right:0;top:-8px;background:rgba(255,255,255,.16);color:#fff;
-      padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.35);backdrop-filter:blur(6px);font-size:12px}
-    h1{margin:0 0 6px;font-weight:800}
-    .subtitle{margin:0;opacity:.95;max-width:960px}
+    .hero {
+      background:linear-gradient(115deg,var(--accent),#3f8cff,var(--accent2));
+      color:#fff;text-align:center;padding:40px 20px;
+      box-shadow:0 6px 30px rgba(0,0,0,.1);
+      position:sticky;top:0;z-index:10;
+    }
+    .hero h1{margin:0;font-size:26px;font-weight:800;}
+    .hero p{max-width:800px;margin:8px auto;font-size:15px;opacity:.95;}
+    .badge{
+      display:inline-block;margin-top:10px;font-size:12px;
+      padding:6px 12px;border-radius:20px;
+      background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);
+      backdrop-filter:blur(5px)
+    }
 
     /* Layout */
-    .container{max-width:1200px;margin:-22px auto 40px;padding:0 20px}
-    .grid{display:grid;grid-template-columns:360px 1fr;gap:22px;align-items:start}
-    @media (max-width:980px){.grid{grid-template-columns:1fr}}
+    .container{max-width:1200px;margin:30px auto;padding:0 20px}
+    .grid{display:grid;grid-template-columns:360px 1fr;gap:24px;}
+    @media(max-width:900px){.grid{grid-template-columns:1fr}}
 
-    .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--ring);border:1px solid var(--line)}
-    .card .hd{font-weight:700;font-size:15px;letter-spacing:.2px;color:var(--muted);text-transform:uppercase;
-      padding:14px 18px;border-bottom:1px dashed #e8eef6;background:linear-gradient(180deg,#f9fbff,#fff 30%);
-      border-top-left-radius:var(--radius);border-top-right-radius:var(--radius)}
-    .card .bd{padding:18px}
+    .card{background:var(--card);border:1px solid var(--line);
+      border-radius:var(--radius);box-shadow:0 8px 30px rgba(0,0,0,.05);}
+    .hd{font-weight:700;font-size:15px;padding:14px 18px;
+      border-bottom:1px dashed #e7ecf5;text-transform:uppercase;color:var(--muted);}
+    .bd{padding:18px;}
 
-    /* Inputs */
-    .field{margin:0 0 14px}
-    .label{display:block;font-size:12px;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
-    .input{width:100%;border:1px solid #dfe7f3;border-radius:12px;padding:12px 14px;background:#fbfdff;outline:none}
-    .btns{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
-    .btn{border:0;padding:10px 14px;border-radius:12px;font-weight:600;box-shadow:var(--ring);cursor:not-allowed}
-    .btn.primary{background:#2383ff;color:#fff}
-    .btn.ghost{background:#eef4ff;color:#274472}
-    .note{font-size:13px;color:var(--muted);background:#f6f9ff;border:1px dashed #dbe6fb;border-radius:14px;padding:14px}
+    .field{margin-bottom:14px;}
+    label{font-size:12px;text-transform:uppercase;color:var(--muted);}
+    input{width:100%;padding:10px 14px;border-radius:10px;border:1px solid #dce3f0;margin-top:6px;}
+    .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;}
+    .btn{padding:10px 14px;border:0;border-radius:10px;font-weight:600;cursor:not-allowed;}
+    .btn.primary{background:#1976d2;color:#fff;}
+    .btn.ghost{background:#eef4ff;color:#274472;}
+    .note{background:#f6f9ff;border:1px dashed #d9e5fa;padding:12px;border-radius:12px;font-size:13px;color:#5b6b82;}
 
-    /* Map (Leaflet) */
-    #map{height:540px;margin:18px;border-radius:18px;border:1px solid #e3e9f4}
-    .leaflet-container{border-radius:18px}
+    #map{height:540px;border-radius:18px;border:1px solid #e3e9f4;margin:18px;}
+    .leaflet-container{border-radius:18px;}
 
-    /* Results */
-    .rows{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:22px}
-    @media (max-width:980px){.rows{grid-template-columns:1fr}}
-    .kv{display:grid;grid-template-columns:140px 1fr;gap:10px;padding:6px 0;border-bottom:1px dashed #eef1f8}
-    .kv:last-child{border-bottom:0}
-    .pill{display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:12px;border-radius:999px;padding:4px 8px}
-    .pill.ok{background:#e8f8ee;color:#0b7a2f;border:1px solid #bfe9cc}
-
-    footer{text-align:center;color:#72809a;font-size:13px;margin:28px 0 40px}
-    footer a{color:#577df6;text-decoration:none}
-    footer a:hover{text-decoration:underline}
+    footer{text-align:center;font-size:13px;color:#607086;margin:40px 0;}
+    footer a{color:#3f8cff;text-decoration:none;}
+    footer a:hover{text-decoration:underline;}
   </style>
 </head>
 <body>
-  <header class="hero" role="banner">
-    <div class="wrap">
-      <span class="badge">Demo — Not live data</span>
-      <h1>Agentic Zoning Validation Assistant — Concept Demo Map</h1>
-      <p class="subtitle">
-        Integrating SDI Maps (ArcGIS Enterprise), ArcGIS Knowledge, and Vector Databases for autonomous zoning compliance checks and explainable outputs.
-      </p>
-    </div>
+
+  <header class="hero">
+    <h1>Agentic Zoning Validation Assistant — Concept Demo Map</h1>
+    <p>Integrating SDI Maps (ArcGIS Enterprise), ArcGIS Knowledge, and Vector Databases for autonomous zoning compliance checks and explainable outputs.</p>
+    <div class="badge">Concept Demo — Not live data</div>
   </header>
 
-  <main class="container" role="main">
+  <main class="container">
     <section class="grid">
-      <!-- Left: Inputs -->
-      <aside class="card" aria-label="Inputs and safety">
+      <aside class="card">
         <div class="hd">Inputs</div>
         <div class="bd">
           <div class="field">
-            <label class="label" for="parcel">Parcel ID</label>
-            <input id="parcel" class="input" placeholder="e.g., 202A-1156" />
+            <label>Parcel ID</label>
+            <input placeholder="e.g., 202A-1156">
           </div>
           <div class="field">
-            <label class="label" for="layer">Zoning Layer</label>
-            <input id="layer" class="input" placeholder="/Zoning/Zones_B1" />
+            <label>Zoning Layer</label>
+            <input placeholder="/Zoning/Zones_B1">
           </div>
           <div class="field">
-            <label class="label" for="rules">Rules</label>
-            <input id="rules" class="input" placeholder="Setbacks, Height, FAR" />
+            <label>Rules</label>
+            <input placeholder="Setbacks, Height, FAR">
           </div>
-
           <div class="btns">
             <button class="btn primary" disabled>Attach rule PDF</button>
             <button class="btn ghost" disabled>Use map selection</button>
           </div>
-
           <div style="height:14px"></div>
-          <div class="hd" style="border-radius:12px;margin:0 0 10px 0;font-size:13px;text-transform:none;color:#334;background:#f0f6ff;border:1px dashed #d6e6ff">Safety</div>
+          <div class="hd" style="text-transform:none;font-size:13px;background:#f0f6ff;border-radius:10px;">Safety</div>
           <div class="note">
-            • Standards-based OGC/REST only • Least-privilege, read-only tokens • Source &amp; time-stamped outputs<br/>
-            • EN/AR natural-language questions (demo) • Evidence linked to rules in ArcGIS Knowledge
+            • Standards-based OGC/REST only • Least-privilege, read-only tokens<br>
+            • Source & time-stamped outputs • EN/AR natural-language questions (demo)
           </div>
         </div>
       </aside>
 
-      <!-- Right: LIVE MAP -->
-      <section class="card" aria-label="Map view">
+      <section class="card">
         <div class="hd">Map (Interactive — Leaflet + OSM)</div>
-        <div id="map" role="application" aria-label="Interactive map of Bahrain with demo overlays"></div>
+        <div id="map"></div>
       </section>
     </section>
 
-    <!-- Results row -->
-    <section class="rows" aria-label="Results and evidence">
-      <article class="card" aria-labelledby="res-h">
-        <div class="hd" id="res-h">Compliance Result</div>
+    <section class="grid" style="margin-top:20px;">
+      <div class="card">
+        <div class="hd">Compliance Result</div>
         <div class="bd">
-          <div class="kv"><div>Parcel</div><div>202A-1156</div></div>
-          <div class="kv"><div>Zone</div><div>B1 (Residential)</div></div>
-          <div class="kv"><div>Decision</div><div>Compliant — <span class="pill ok">PASS</span></div></div>
-          <div class="kv"><div>Notes</div><div>Setbacks &amp; FAR within limits; height check satisfied.</div></div>
+          <p><strong>Parcel:</strong> 202A-1156</p>
+          <p><strong>Zone:</strong> B1 (Residential)</p>
+          <p><strong>Decision:</strong> ✅ Compliant — <span style="color:#16a34a;font-weight:700;">PASS</span></p>
         </div>
-      </article>
+      </div>
 
-      <article class="card" aria-labelledby="ev-h">
-        <div class="hd" id="ev-h">Evidence &amp; Audit</div>
+      <div class="card">
+        <div class="hd">Evidence & Audit</div>
         <div class="bd">
-          <div class="kv"><div>Sources</div><div>SDI Maps (ArcGIS Enterprise)</div></div>
-          <div class="kv"><div>Query</div><div>REST/OGC (read-only)</div></div>
-          <div class="kv"><div>Rules</div><div>ArcGIS Knowledge — “B1 setbacks, height, FAR”</div></div>
-          <div class="kv"><div>Embeddings</div><div>Vector DB (rules text for LLM retrieval)</div></div>
-          <div class="kv"><div>Trace</div><div>SPAR: Sense → Plan → Act → Reflect (explainable steps)</div></div>
+          <p><strong>Sources:</strong> SDI Maps (ArcGIS Enterprise)</p>
+          <p><strong>Query:</strong> REST/OGC (read-only)</p>
+          <p><strong>Rules:</strong> ArcGIS Knowledge — “B1 setbacks, height, FAR”</p>
+          <p><strong>SPAR Cycle:</strong> Sense → Plan → Act → Reflect</p>
         </div>
-      </article>
+      </div>
     </section>
   </main>
 
   <footer>
-    © 2025 · Aduri Sreenivas · Concept demo UI (static sources). Map tiles © OpenStreetMap contributors. ·
-    <a href="https://aduri123.github.io/agentic-zoning-validation-ui/" target="_blank" rel="noopener">Project Home</a>
+    © 2025 · Aduri Sreenivas · Concept demo UI (static sources). Map tiles © OpenStreetMap contributors.
   </footer>
 
-  <!-- Map script -->
   <script>
-    // Center on Bahrain
-    const map = L.map('map', { zoomControl: true, attributionControl: true })
-      .setView([26.0667, 50.5577], 11);
+    // Initialize Leaflet map centered on Bahrain
+    const map = L.map('map').setView([26.0667, 50.5577], 12);
 
-    // OSM tiles (no API key)
+    // Add OpenStreetMap basemap
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
-    // Demo polygon (pretend zoning violation area)
+    // Demo polygon
     const poly = L.polygon([
       [26.0987, 50.5195],
       [26.1025, 50.5375],
       [26.0865, 50.5400],
       [26.0842, 50.5225]
     ], {
-      color: '#d23f5b', weight: 2, fillColor: '#f4a2b1', fillOpacity: 0.35
+      color: '#d23f5b',
+      fillColor: '#f4a2b1',
+      fillOpacity: 0.35
     }).addTo(map).bindPopup('Demo: Violation buffer');
 
-    // Demo marker label
-    const marker = L.marker([26.0935, 50.5310]).addTo(map)
+    // Violation label
+    const marker = L.marker([26.0935, 50.5310])
+      .addTo(map)
       .bindTooltip('Violation', { permanent: true, direction: 'top', className: 'violation-tip' });
 
-    // Ensure everything is visible
-    map.fitBounds(poly.getBounds().pad(0.5));
-
-    // Optional: nicer tooltip style
     const style = document.createElement('style');
     style.textContent = `
       .violation-tip {
-        background:#fff; color:#7c2332; border:2px solid rgba(242,104,112,.6);
-        border-radius:12px; padding:6px 10px; font-weight:700; box-shadow:0 6px 18px rgba(242,104,112,.15);
-      }
-    `;
+        background:#fff;color:#7c2332;border:2px solid rgba(242,104,112,.6);
+        border-radius:12px;padding:6px 10px;font-weight:700;
+        box-shadow:0 6px 18px rgba(242,104,112,.15);
+      }`;
     document.head.appendChild(style);
   </script>
+
 </body>
 </html>
