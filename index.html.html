@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agentic Zoning Validation Assistant — Integrating SDI Maps (ArcGIS Enterprise), ArcGIS Knowledge, and Vector Databases</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous"/>
+  <style>
+    :root{
+      --bg:#f3f8ff; --ink:#0f172a; --muted:#475569; --line:#e2e8f0;
+      --blue:#2563eb; --cyan:#06b6d4; --green:#10b981; --red:#ef4444; --amber:#f59e0b;
+      --card:#ffffff; --shadow:0 10px 26px rgba(15, 23, 42, .08);
+    }
+    html,body{margin:0; font-family:"Segoe UI", Inter, system-ui, Arial, sans-serif; background:var(--bg); color:var(--ink)}
+    /* Header */
+    .header{display:flex; flex-direction:column; align-items:center; gap:4px; padding:22px 24px; text-align:center; color:#fff; background:linear-gradient(90deg,var(--blue),var(--cyan)); box-shadow:0 6px 16px rgba(37,99,235,.25)}
+    .logo{font-weight:900; letter-spacing:.3px; font-size:22px;}
+    .subtitle{font-size:14px; opacity:.95; max-width:880px; line-height:1.4;}
+    /* Layout */
+    .wrap{max-width:1200px; margin:24px auto 40px; padding:0 16px}
+    .layout{display:grid; grid-template-columns:420px 1fr; gap:18px}
+    @media (max-width: 960px){ .layout{ grid-template-columns:1fr; } }
+    /* Left: agent prompt & inputs */
+    aside.panel{background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); padding:16px}
+    .section{border:1px dashed #dbeafe; background:#f8fbff; border-radius:12px; padding:12px; margin-bottom:12px}
+    .section h3{margin:0 0 8px; font-size:14px; color:#1e3a8a}
+    .input{display:flex; align-items:center; gap:8px; border:1px solid var(--line); background:#fff; border-radius:10px; padding:8px 10px}
+    .input input{border:none; outline:none; flex:1; font-size:14px}
+    .chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px}
+    .pill{border:1px solid #e2e8f0; background:#fff; padding:6px 10px; border-radius:999px; font-size:12px; cursor:pointer}
+    .kv{display:grid; grid-template-columns:140px 1fr; gap:8px; font-size:13px}
+    .kv input{width:100%; padding:6px 8px; border:1px solid var(--line); border-radius:8px}
+    .row{display:flex; gap:8px; align-items:center; margin-top:8px}
+    .btn{border:1px solid var(--line); background:linear-gradient(135deg, var(--blue), var(--cyan)); color:#fff; font-weight:700; padding:10px 12px; border-radius:10px; cursor:pointer}
+    .btn.secondary{background:#fff; color:var(--ink)}
+    .btn.ghost{background:#fff; border-style:dashed}
+    .note{font-size:12px; color:var(--muted); margin-top:6px}
+    /* Right: map + results */
+    main.canvas{display:grid; grid-template-rows: 460px auto; gap:18px}
+    .map{position:relative; background:#eaf4ff; border:1px solid #c7d2fe; border-radius:16px; overflow:hidden; box-shadow:var(--shadow)}
+    #map{position:absolute; inset:0}
+    .legend{position:absolute; top:12px; right:12px; background:#fff; border:1px solid var(--line); border-radius:12px; padding:8px 12px; font-size:12px; z-index:2; color:#1e3a8a; box-shadow:0 4px 12px rgba(37,99,235,.15)}
+    .legend .dot{width:10px; height:10px; border-radius:999px; display:inline-block; margin-right:6px}
+    .dot.parcel{background:#0ea5e9}
+    .dot.zoning{background:#10b981}
+    .dot.violation{background:#ef4444}
+    .results{display:grid; grid-template-columns:1fr 1fr; gap:18px}
+    @media (max-width: 960px){ .results{ grid-template-columns:1fr; } }
+    .card{background:#fff; border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); padding:16px}
+    .status{display:flex; align-items:center; gap:8px; font-weight:900; font-size:16px}
+    .badge{padding:4px 8px; border-radius:8px; font-size:12px; font-weight:800}
+    .ok{background:#dcfce7; color:#065f46; border:1px solid #86efac}
+    .fail{background:#fee2e2; color:#7f1d1d; border:1px solid #fecaca}
+    .kv.out{display:grid; grid-template-columns:140px 1fr; gap:6px; font-size:13px; margin-top:8px}
+    .kv.out div:nth-child(odd){color:#475569}
+    .rules li{margin:6px 0; font-size:13px}
+    .actions{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px}
+    footer{margin-top:26px; text-align:center; color:#64748b; font-size:12px}
+    .viol-tip{background:#ffd9d9;color:#7f1d1d;border:1px solid #fca5a5;border-radius:8px;box-shadow:0 4px 10px rgba(127,29,29,.12)}
+  </style>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
+</head>
+<body>
+  <header class="header">
+    <div class="logo">Agentic Zoning Validation Assistant</div>
+    <div class="subtitle">Integrating SDI Maps (ArcGIS Enterprise), ArcGIS Knowledge, and Vector Databases for autonomous zoning compliance checks and explainable outputs.</div>
+  </header>
+
+  <div class="wrap">
+    <div class="layout">
+      <!-- LEFT: Prompt & Inputs -->
+      <aside class="panel" aria-label="Agent query & inputs">
+        <div class="section">
+          <h3>Ask a question</h3>
+          <div class="input" role="search">
+            <span>💬</span>
+            <input type="text" placeholder="Is this parcel compliant within Zone B1? (ID, address, or map click)" />
+            <button class="btn" aria-label="Validate">Validate</button>
+          </div>
+          <div class="chips" aria-label="Quick examples">
+            <span class="pill">Check parcel by ID</span>
+            <span class="pill">Check by address</span>
+            <span class="pill">Map click → Validate</span>
+          </div>
+          <div class="note">Natural-language questions supported (EN/AR). Read-only access to Spatial Data Infrastructure (SDI) services.</div>
+        </div>
+
+        <div class="section">
+          <h3>Inputs</h3>
+          <div class="kv">
+            <div>Parcel ID</div><div><input type="text" placeholder="e.g., 202A-1156"></div>
+            <div>Zoning Layer</div><div><input type="text" placeholder="/Zoning/Zones_B1"></div>
+            <div>Rules</div><div><input type="text" placeholder="Setbacks, Height, FAR"></div>
+          </div>
+          <div class="row">
+            <button class="btn secondary">Attach rule PDF</button>
+            <button class="btn ghost">Use map selection</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>Safety</h3>
+          <div class="note">Standards-based OGC/REST only • Least-privilege, read-only tokens • Source & time stamped outputs</div>
+        </div>
+      </aside>
+
+      <!-- RIGHT: Map + Results -->
+      <main class="canvas" aria-label="Map and results">
+        <div class="map" aria-label="Interactive map">
+          <div id="map"></div>
+          <div class="legend">
+            <div><span class="dot parcel"></span> Parcel</div>
+            <div><span class="dot zoning"></span> Zoning</div>
+            <div><span class="dot violation"></span> Non-compliant</div>
+          </div>
+        </div>
+
+        <script>
+          // Initialize Leaflet map (no API key needed)
+          const map = L.map('map', { zoomControl: true, attributionControl: false }).setView([25.0, 55.0], 11);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+          // Zoning polygons (mint)
+          const zoningStyle = { color: '#8ee3b7', weight: 2, fillColor: '#d2fae7', fillOpacity: 0.55 };
+          const zones = [
+            [[25.03,54.96],[25.03,55.02],[24.99,55.05],[24.97,55.01],[24.99,54.96]],
+            [[25.09,55.03],[25.09,55.09],[25.05,55.11],[25.03,55.07],[25.05,55.03]]
+          ];
+          zones.forEach(coords => L.polygon(coords, zoningStyle).addTo(map));
+
+          // Parcels (soft blue)
+          const parcelStyle = { color: '#9dc6ff', weight: 2, fillColor: '#cde7ff', fillOpacity: 0.85 };
+          const parcels = [
+            [[25.02,54.97],[25.02,54.99],[25.00,54.99],[25.00,54.97]],
+            [[25.02,54.995],[25.02,55.015],[25.00,55.015],[25.00,54.995]],
+            [[25.02,55.02],[25.02,55.04],[25.00,55.04],[25.00,55.02]],
+            [[25.07,55.05],[25.07,55.07],[25.05,55.07],[25.05,55.05]],
+            [[25.07,55.08],[25.07,55.10],[25.05,55.10],[25.05,55.08]]
+          ];
+          parcels.forEach(coords => L.polygon(coords, parcelStyle).addTo(map));
+
+          // Violation parcel (red highlight)
+          const viol = L.polygon([[25.05,55.06],[25.05,55.075],[25.035,55.075],[25.035,55.06]], {
+            color: '#fca5a5', weight: 3, fillColor: '#ffd9d9', fillOpacity: 0.9
+          }).addTo(map);
+          viol.bindTooltip('Violation', { permanent: true, direction: 'center', className: 'viol-tip' });
+        </script>
+
+        <div class="results">
+          <section class="card" aria-label="Compliance summary">
+            <div class="status"><span>✅</span> Compliance Result <span class="badge ok">PASS</span></div>
+            <div class="kv out">
+              <div>Parcel</div><div>202A-1156</div>
+              <div>Zone</div><div>B1 (Residential)</div>
+              <div>Decision</div><div>Compliant — setbacks, height, FAR within limits</div>
+            </div>
+            <ul class="rules">
+              <li>Setbacks: Front ≥ 6 m, Rear ≥ 4 m, Side ≥ 3 m — <strong>OK</strong></li>
+              <li>Height: ≤ 12 m — <strong>OK</strong></li>
+              <li>FAR: ≤ 1.5 — <strong>OK</strong></li>
+            </ul>
+            <div class="actions">
+              <button class="btn">Download Report (PDF)</button>
+              <button class="btn secondary">Export GeoJSON</button>
+              <button class="btn ghost">Copy query link</button>
+            </div>
+          </section>
+
+          <section class="card" aria-label="Evidence & audit">
+            <div class="status"><span>📑</span> Evidence & Audit</div>
+            <div class="kv out">
+              <div>Sources</div><div>SDI Maps (ArcGIS Enterprise), Zoning & Parcel Layers</div>
+              <div>Query</div><div>REST/OGC (read-only) with schema validation</div>
+              <div>Timestamp</div><div>YYYY-MM-DD HH:MM (Local)</div>
+              <div>Localization</div><div>EN/AR bilingual output</div>
+            </div>
+            <ul class="rules">
+              <li>Rule citations: B1 setbacks §4.2; height §3.1; FAR §2.6</li>
+              <li>Token scope: Read features only (no edits)</li>
+            </ul>
+          </section>
+        </div>
+      </main>
+    </div>
+    <footer>© 2025 · Agentic Zoning Validation Assistant — Integrating SDI Maps (ArcGIS Enterprise), ArcGIS Knowledge & Vector Databases</footer>
+  </div>
+</body>
+</html>
